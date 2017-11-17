@@ -19,7 +19,7 @@ RECORRIDO_URL = '{0}/getrecorrido'.format(TRANSANTIAGO_URL)
 gmaps = googlemaps.Client( key='AIzaSyDOAu0c-3OMkpLeqi0tdJ9Jrr-2XygDmgY')
 
 
-@app.route("/stop/", methods=['GET'])
+@app.route("/stop", methods=['GET'])
 def stop(): 
     if request.method != 'GET':
         return '', status.HTTP_400_BAD_REQUEST
@@ -62,8 +62,8 @@ def line(step):
 
 def get_directions(stop1, stop2):
 
-    rides_directions = gmaps.directions(origin = as_tuple(stop1), destination = as_tuple(stop2), mode='transit')
-
+    rides_directions = gmaps.directions(origin = as_tuple(stop1), destination = as_tuple(stop2), mode='driving')
+    # print(as_tuple(stop1), as_tuple(stop2))
     steps = []
     queue = [rides_directions[0]['legs'][0]]
     while len(queue) > 0:
@@ -82,10 +82,27 @@ def rev(list_coord):
     return list_coord
 
 def directions(journey):
-    return get_directions(journey[0], journey[1]) + get_directions(journey[1], journey[2])
+    return get_directions(journey[0], journey[1]) + get_directions(journey[1], journey[2]) 
 
-def ride_repr(ride, journey):
-    return { 'pid': ride['cod'], 'journeys': directions(journey), 'etas': []}
+def etass(etas):
+    et = []
+    for e in etas['servicios']['item']:
+        if e["horaprediccionbus1"]:
+            et.append(e["horaprediccionbus1"])
+        if e["horaprediccionbus2"]:
+            et.append(e["horaprediccionbus2"])
+        if len(et) == 0:
+            et.append("No hay buses que se dirijan al paradero.")
+    return et
+
+def stopss(journey, stops):
+    st = []
+    for i in range(len(stops)):
+        st.append({'stop': stops[i], 'pos': journey[i]})
+    return st
+
+def ride_repr(ride, journey, etas, stops):
+    return { 'pid': ride['cod'], 'journeys': directions(journey), 'etas': etass(etas), 'stops': stopss(journey, stops)}
 
 @asyncio.coroutine
 def get_recorrido(x):
@@ -96,6 +113,18 @@ def all_recorridos(rides):
     rides_json_requests = []
     for ride in rides:
         rides_json_requests.append(asyncio.Task(get_recorrido(ride)))
+
+    return rides_json_requests
+
+@asyncio.coroutine
+def get_etas(x, nearest):
+    data = yield from aiohttp.request('GET', PREDICCION_URL, params=(('codsimt', nearest),('codser', x['cod'])) )
+    return (yield from data.json())
+
+def all_etas(rides, nearest):
+    rides_json_requests = []
+    for ride in rides:
+        rides_json_requests.append(asyncio.Task(get_etas(ride, nearest)))
 
     return rides_json_requests
 
@@ -136,7 +165,8 @@ def journey_look_up():
     ### GET RIDES STOPS
 
     rides_stops = list(map(lambda x:  list(map( lambda y: y['pos']  , x['paradas'] ))  ,  rides_jsons))
-
+    rides_stops_cod = list(map(lambda x:  list(map( lambda y: y['cod']  , x['paradas'] ))  ,  rides_jsons))
+    
     #print(nearest_stop['pos'])
     for i in range(len(rides_jsons)):
         # print(rides_jsons[i]['cod'])
@@ -147,17 +177,19 @@ def journey_look_up():
                 index =  j
         # print(index)
         # print(rides_stops[i])
-        rides_stops[i] = rides_stops[i][index-1:index+2] if index > -1 else None
-        # print(rides_stops[i])
+        low_index = index - 2 if index > 2 else 0
+        top_index = index + 3 if len(rides_stops[i]) - index >= 3 else index
+        rides_stops[i] = rides_stops[i][low_index:top_index] if index > -1 else None
+        rides_stops_cod[i] = rides_stops_cod[i][low_index:top_index] if index > -1 else None
+        # print(rides_stops[i])s
     
-
-    ### GET DIRECTIONS 
+    etas_jsons = loop.run_until_complete(asyncio.gather(*all_etas(rides, nearest_stop['cod'])))
 
     response = []
 
     for i in range(len(rides_jsons)):
         if not rides_stops[i] is None:
-            response.append(ride_repr(rides_jsons[i], rides_stops[i]))
+            response.append(ride_repr(rides_jsons[i], rides_stops[i], etas_jsons[i], rides_stops_cod[i]))
 
     return response
 
