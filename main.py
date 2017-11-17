@@ -13,7 +13,7 @@ PREDICCION_URL = '{0}/prediccion'.format(TRANSANTIAGO_URL) #PARAMS: codsimtm cod
 RECORRIDO_URL = '{0}/getrecorrido'.format(TRANSANTIAGO_URL) #PARAMS: codsimtm codser
 
 
-gmaps = googlemaps.Client( key='AIzaSyDOAu0c-3OMkpLeqi0tdJ9Jrr-2XygDmgY	')
+gmaps = googlemaps.Client( key='AIzaSyDOAu0c-3OMkpLeqi0tdJ9Jrr-2XygDmgY')
 
 
 stops = [1 ,2, 3]
@@ -93,6 +93,32 @@ def journey_look_up():
     
 
     ### GET DIRECTIONS 
+    def as_tuple(list):
+        return (list[0], list[1])
+
+    def line(step):
+        start = step['start_location']
+        end = step['end_location']
+        return [ [start['lat'], start['lng']], [end['lat'], end['lng']] ]
+
+    def get_directions(stop1, stop2):
+
+        rides_directions = gmaps.directions(origin = as_tuple(stop1), destination = as_tuple(stop2), mode='transit')
+
+        steps = []
+        queue = [rides_directions[0]['legs'][0]]
+        while len(queue) > 0:
+            actual = queue.pop()
+            steps.append( line(actual) )
+            if 'steps' in actual.keys():
+                steps.pop()
+                for i in range(len(actual['steps'])-1, -1 , -1):
+                    queue.append(actual['steps'][i])
+        steps.reverse()
+        return steps
+
+    print(get_directions(rides_stops[0][0], rides_stops[0][1]))
+    print(get_directions(rides_stops[0][1], rides_stops[0][2]))
 
 
     return '', status.HTTP_204_NO_CONTENT
