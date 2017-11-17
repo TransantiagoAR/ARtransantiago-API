@@ -4,6 +4,7 @@ import requests
 import googlemaps
 import aiohttp
 import asyncio
+import selectors
 
 app = FlaskAPI(__name__)
 
@@ -14,7 +15,6 @@ SERVICIOS_URL = '{0}/getservicios/all'.format(TRANSANTIAGO_URL)
 PUNTO_PARADA_URL = '{0}/getpuntoparada'.format(TRANSANTIAGO_URL) # PARAMS: lat, lon, bip
 PREDICCION_URL = '{0}/prediccion'.format(PREDICTOR_URL) #PARAMS: codsimtm codser
 RECORRIDO_URL = '{0}/getrecorrido'.format(TRANSANTIAGO_URL) 
-
 
 gmaps = googlemaps.Client( key='AIzaSyDOAu0c-3OMkpLeqi0tdJ9Jrr-2XygDmgY')
 
@@ -152,8 +152,13 @@ def journey_look_up():
     rides = nearest_stop['servicios']
     # rides_jsons = list(all_recorridos(rides))
 
-    loop = asyncio.ProactorEventLoop()
+    selector = selectors.SelectSelector()
+    loop = asyncio.SelectorEventLoop(selector)
     asyncio.set_event_loop(loop)
+
+    loop = asyncio.get_event_loop()
+    # loop = asyncio.ProactorEventLoop()
+    # asyncio.set_event_loop(loop)
     rides_jsons = loop.run_until_complete(asyncio.gather(*all_recorridos(rides)))
 
     # print(rides_jsons)
@@ -195,6 +200,4 @@ def journey_look_up():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
-
-
+    app.run(debug=True, host="0.0.0.0")

@@ -1,0 +1,8 @@
+version: '2.2'
+services:
+  arapi:
+    build: .
+    ports:
+      - 443:5000
+      - 80:5000
+      - 5000:5000
