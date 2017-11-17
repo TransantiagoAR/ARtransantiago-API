@@ -114,14 +114,27 @@ def journey_look_up():
                 steps.pop()
                 for i in range(len(actual['steps'])-1, -1 , -1):
                     queue.append(actual['steps'][i])
-        steps.reverse()
+        steps
         return steps
 
-    print(get_directions(rides_stops[0][0], rides_stops[0][1]))
-    print(get_directions(rides_stops[0][1], rides_stops[0][2]))
+    def rev(list_coord):
+        list_coord.reverse()
+        for l in list_coord:
+            l.reverse()
+        return list_coord
 
+    def directions(journey):
+        return get_directions(journey[0], journey[1]) + get_directions(journey[1], journey[2])
 
-    return '', status.HTTP_204_NO_CONTENT
+    def ride_repr(ride, journey):
+        return { 'pid': ride['cod'], 'journeys': directions(journey), 'etas': []}
+
+    response = []
+
+    for i in range(len(rides_jsons)):
+        response.append(ride_repr(rides_jsons[i], rides_stops[i]))
+
+    return response
 
 
 if __name__ == "__main__":
